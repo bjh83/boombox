@@ -1,0 +1,10 @@
+roms/
+
+*.o
+*.lo
+*.s
+*.a
+*.la
+*.log
+*.out
+*.pyc
