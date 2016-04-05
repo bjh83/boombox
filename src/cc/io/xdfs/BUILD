@@ -55,3 +55,14 @@ cc_library(
     "//cc/utils:error",
   ],
 )
+
+cc_binary(
+  name = "print_files",
+  srcs = ["print_files.h"],
+  deps = [
+    "//cc/io:file",
+    "//cc/utils:error",
+    ":xdfs",
+    ":xdfs_dir",
+  ],
+)
