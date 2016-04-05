@@ -24,7 +24,9 @@ namespace utils {
 
 #define CHECK_INFO(predicate, message) if (!(predicate)) { FAIL(message); }
 
-#define CHECK(predicate) CHECK_INFO(predicate, "Failed check: " #predicate)
+#define CHECK(predicate) \
+  CHECK_INFO(predicate, std::string(__FILE__) + ":" + std::to_string(__LINE__) \
+             + "] " + "Failed check: " #predicate)
 
 #define CHECK_ERROR(error) CHECK_INFO(error.is_ok(), error.error_info())
 
@@ -50,7 +52,7 @@ class Error {
   const std::string& error_info() const { return error_info_; }
 
  private:
-  bool ok_;
+  bool ok_ = false;
   std::string error_info_;
 };
 

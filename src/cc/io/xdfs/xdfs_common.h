@@ -33,6 +33,8 @@ struct DirEntry {
 
 DirEntry ReadDirEntryAtOffset(File* file, size_t offset);
 
+std::string ToString(const DirEntry& entry);
+
 struct Sector {
   uint8_t data[kSectorSizeBytes];
 };
@@ -41,8 +43,8 @@ inline size_t SectorToOffset(uint32_t sector_number) {
   return sector_number * kSectorSizeBytes;
 }
 
-inline bool IsDir(uint8_t attribute) {
-  return attribute & kAttributeIsHiddenMask;
+inline bool IsDir(uint8_t attributes) {
+  return (attributes & kAttributeIsDirectoryMask) > 0;
 }
 
 } // namespace xdfs

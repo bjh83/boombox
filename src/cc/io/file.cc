@@ -1,6 +1,7 @@
 #include "cc/io/file.h"
 
 #include <fcntl.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 using std::string;

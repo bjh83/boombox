@@ -18,11 +18,11 @@ vector<XdfsDirEntry> ReadEntriesImpl(XdfsBackend* backend, size_t offset_bytes) 
     results.push_back({entry.name, entry.attributes});
     if (entry.left_child_dwords > 0) {
       offsets_to_scan.push_back(
-          entry.left_child_dwords * kSectorSizeBytes + entry.offset_bytes);
+          entry.left_child_dwords * kDWordsBytes + offset_bytes);
     }
     if (entry.right_child_dwords > 0) {
       offsets_to_scan.push_back(
-          entry.right_child_dwords * kSectorSizeBytes + entry.offset_bytes);
+          entry.right_child_dwords * kDWordsBytes + offset_bytes);
     }
   }
   return results;

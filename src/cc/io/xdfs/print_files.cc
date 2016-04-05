@@ -18,13 +18,13 @@ using utils::ErrorOr;
 
 vector<string> FindAllFilePaths(Xdfs* xdfs) {
   vector<string> all_file_paths;
-  vector<string> dirs_to_search = { "/" };
+  vector<string> dirs_to_search;
+  dirs_to_search.push_back("/");
   while (!dirs_to_search.empty()) {
     const string current_dir_path = dirs_to_search.back();
     dirs_to_search.pop_back();
 
     ErrorOr<XdfsDir> error_or_dir = xdfs->OpenDir(current_dir_path);
-    dirs_to_search.pop_back();
     CHECK_ERROR(error_or_dir.error());
     XdfsDir dir = error_or_dir.move();
 
@@ -42,7 +42,7 @@ vector<string> FindAllFilePaths(Xdfs* xdfs) {
   return all_file_paths;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char* argv[]) {
   CHECK_INFO(argc == 2, "Path to ISO must be provided.");
   ErrorOr<File> error_or_file = File::Open(argv[1], File::RD_ONLY);
   CHECK_ERROR(error_or_file.error());
