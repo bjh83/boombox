@@ -10,11 +10,16 @@ namespace xdfs {
 class XdfsBackend {
  public:
   XdfsBackend(File&& file) : file_(std::move(file)) {}
+  XdfsBackend(XdfsBackend&& xdfs_backend)
+      : file_(std::move(xdfs_backend.file_)) {}
   
   DirEntry ReadDirEntry(size_t offset_bytes);
   Sector ReadSector(size_t offset_bytes);
  private:
   File file_;
+
+  XdfsBackend(const XdfsBackend&) = delete;
+  XdfsBackend& operator=(const XdfsBackend&) = delete;
 };
 } // namespace xdfs
 } // namespace io

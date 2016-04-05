@@ -10,6 +10,26 @@
 
 namespace utils {
 
+#define RETURN_ERROR(info) return utils::Error(info, __FILE__, __LINE__);
+
+#define RETURN_ERROR_IF(predicate, info) if (predicate) { RETURN_ERROR(info); }
+
+#define RETURN_ERROR_IF_NOT(predicate, info) RETURN_ERROR_IF(!(predicate), info)
+
+#define PASS_ERROR(error) \
+    { utils::Error temp = error; if (!temp.is_ok()) { return error; } }
+
+#define RETURN_ERROR_SYSCALL(result, info) \
+    RETURN_ERROR_IF_NOT(result >= 0, std::string(info) + ": " + strerror(errno))
+
+#define CHECK_INFO(predicate, message) if (!(predicate)) { FAIL(message); }
+
+#define CHECK(predicate) CHECK_INFO(predicate, "Failed check: " #predicate)
+
+#define CHECK_ERROR(error) CHECK_INFO(error.is_ok(), error.error_info())
+
+#define FAIL(message) std::cout << message << std::endl; abort();
+
 class Error {
  public:
   Error(const std::string& error_info) : error_info_(error_info) {}
@@ -39,7 +59,7 @@ class ErrorOr {
  public:
   ErrorOr(const Error& error) : error_(error) {}
   ErrorOr(T&& value) 
-      : memory_ptr_(new(memory_) T(value)), error_(Error::Ok()) {}
+      : memory_ptr_(new(memory_) T(std::move(value))), error_(Error::Ok()) {}
 
   ~ErrorOr() { if (is_ok() && memory_ptr_) { memory_ptr_->~T(); } }
 
@@ -57,25 +77,5 @@ class ErrorOr {
 };
 
 } // namespace utils
-
-#define RETURN_ERROR(info) return utils::Error(info, __FILE__, __LINE__);
-
-#define RETURN_ERROR_IF(predicate, info) if (predicate) { RETURN_ERROR(info); }
-
-#define RETURN_ERROR_IF_NOT(predicate, info) RETURN_ERROR_IF(!(predicate), info)
-
-#define PASS_ERROR(error) \
-    { utils::Error temp = error; if (!temp.is_ok()) { return error; } }
-
-#define RETURN_ERROR_SYSCALL(result, info) \
-    RETURN_ERROR_IF_NOT(result >= 0, std::string(info) + ": " + strerror(errno))
-
-#define CHECK_INFO(predicate, message) if (!(predicate)) { FAIL(message); }
-
-#define CHECK(predicate) CHECK_INFO(predicate, "Failed check: " #predicate)
-
-#define CHECK_ERROR(error) CHECK_INFO(error.is_ok(), error.error_info())
-
-#define FAIL(message) std::cout << message << std::endl; abort();
 
 #endif // UITLS_ERROR_H_

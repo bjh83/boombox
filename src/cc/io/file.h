@@ -28,6 +28,9 @@ class File {
   int fd_ = -1;
 
   File(int fd) : fd_(fd) {}
+
+  File(const File&) = delete;
+  File& operator=(const File&) = delete;
 };
 
 } // namespace io

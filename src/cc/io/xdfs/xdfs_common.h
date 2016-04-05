@@ -37,11 +37,11 @@ struct Sector {
   uint8_t data[kSectorSizeBytes];
 };
 
-size_t SectorToOffset(uint32_t sector_number) {
+inline size_t SectorToOffset(uint32_t sector_number) {
   return sector_number * kSectorSizeBytes;
 }
 
-bool IsDir(uint8_t attribute) {
+inline bool IsDir(uint8_t attribute) {
   return attribute & kAttributeIsHiddenMask;
 }
 

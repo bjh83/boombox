@@ -16,6 +16,10 @@ class Xdfs {
  public:
   static utils::ErrorOr<Xdfs> CreateXdfs(File&& file);
 
+  Xdfs(Xdfs&& xdfs) :
+      xdfs_backend_(std::move(xdfs.xdfs_backend_)),
+      root_entry_(xdfs.root_entry_) {}
+
   utils::ErrorOr<XdfsFile> OpenFile(const std::string& path);
   utils::ErrorOr<XdfsDir> OpenDir(const std::string& path);
 
@@ -31,6 +35,9 @@ class Xdfs {
   utils::ErrorOr<bool> LookupDirEntryInTable(DirEntry* entry,
                                              const DirEntry& root,
                                              const std::string& dir_name);
+
+  Xdfs(const Xdfs&) = delete;
+  Xdfs& operator=(const Xdfs&) = delete;
 };
 } // namespace xdfs
 } // namespace io

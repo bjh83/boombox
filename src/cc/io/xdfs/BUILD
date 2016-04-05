@@ -58,7 +58,7 @@ cc_library(
 
 cc_binary(
   name = "print_files",
-  srcs = ["print_files.h"],
+  srcs = ["print_files.cc"],
   deps = [
     "//cc/io:file",
     "//cc/utils:error",
