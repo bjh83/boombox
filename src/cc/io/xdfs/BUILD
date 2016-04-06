@@ -66,3 +66,15 @@ cc_binary(
     ":xdfs_dir",
   ],
 )
+
+cc_binary(
+  name = "extract_files",
+  srcs = ["extract_files.cc"],
+  deps = [
+    "//cc/io:file",
+    "//cc/utils:error",
+    ":xdfs",
+    ":xdfs_dir",
+    ":xdfs_file",
+  ],
+)

@@ -25,6 +25,12 @@ int ToNativeAccessMode(File::AccessMode access_mode) {
 }
 } // namespace
 
+ErrorOr<File> File::Create(const string& file_name, int permissions) {
+  int fd = creat(file_name.c_str(), permissions);
+  RETURN_ERROR_SYSCALL(fd, "Could not create file.");
+  return ErrorOr<File>(File(fd));
+}
+
 ErrorOr<File> File::Open(const string& file_name, AccessMode access_mode) {
   int fd = open(file_name.c_str(), ToNativeAccessMode(access_mode));
   RETURN_ERROR_SYSCALL(fd, "Could not open file.");

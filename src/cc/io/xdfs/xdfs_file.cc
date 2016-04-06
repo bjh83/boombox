@@ -9,18 +9,22 @@ namespace xdfs {
 
 ErrorOr<ssize_t> XdfsFile::Read(char* buffer, size_t max_to_read) {
   if (sector_offset_ < 0) {
-    current_sector_ =
+    ErrorOr<Sector> error_or_sector =
         xdfs_backend_->ReadSector(SectorToOffset(attributes_.start_sector));
+    PASS_ERROR(error_or_sector.error());
+    current_sector_ = error_or_sector.move();
     sector_offset_ = 0;
   }
   ssize_t i;
   for (i = 0; static_cast<size_t>(i) < max_to_read
-       && current_offset_ < attributes_.size_bytes; i++) {
+       && current_offset_ < attributes_.size_bytes; i++, current_offset_++) {
     if (current_offset_ >=
         static_cast<size_t>(sector_offset_) + kSectorSizeBytes) {
       sector_offset_ = current_offset_ - (current_offset_ % kSectorSizeBytes);
-      current_sector_ = xdfs_backend_->ReadSector(
+      ErrorOr<Sector> error_or_sector = xdfs_backend_->ReadSector(
           SectorToOffset(attributes_.start_sector) + sector_offset_);
+      PASS_ERROR(error_or_sector.error());
+      current_sector_ = error_or_sector.move();
     }
     CHECK(current_offset_ - sector_offset_ < kSectorSizeBytes);
     buffer[i] = current_sector_.data[current_offset_ - sector_offset_];

@@ -4,6 +4,7 @@
 #include <memory>
 #include "cc/io/file.h"
 #include "cc/io/xdfs/xdfs_common.h"
+#include "cc/utils/error.h"
 
 namespace io {
 namespace xdfs {
@@ -13,8 +14,8 @@ class XdfsBackend {
   XdfsBackend(XdfsBackend&& xdfs_backend)
       : file_(std::move(xdfs_backend.file_)) {}
   
-  DirEntry ReadDirEntry(size_t offset_bytes);
-  Sector ReadSector(size_t offset_bytes);
+  utils::ErrorOr<DirEntry> ReadDirEntry(size_t offset_bytes);
+  utils::ErrorOr<Sector> ReadSector(size_t offset_bytes);
  private:
   File file_;
 

@@ -34,19 +34,21 @@ struct VolumeDescriptorPart2 {
 };
 
 ErrorOr<VolumeDescriptor> ReadVolumeDescriptorAndVerify(File* file) {
-  CHECK_ERROR(file->Seek(kVolumeDescriptorOffsetBytes));
+  PASS_ERROR(file->Seek(kVolumeDescriptorOffsetBytes).error());
   VolumeDescriptor descriptor;
-  CHECK_ERROR(
-      file->Read(reinterpret_cast<char*>(&descriptor), sizeof(descriptor)));
+  PASS_ERROR(
+      file->Read(reinterpret_cast<char*>(&descriptor), sizeof(descriptor))
+      .error());
   RETURN_ERROR_IF_NOT(
       kMicrosoftXboxMedia == string(descriptor.microsoft_xbox_media,
                                     kMicrosoftXboxMediaSize),
       "Volume descriptor does not exist or is not formatted properly.");
 
-  CHECK_ERROR(file->Seek(kVolumeDescriptorPart2OffsetAbsoluteBytes));
+  CHECK_ERROR(file->Seek(kVolumeDescriptorPart2OffsetAbsoluteBytes).error());
   VolumeDescriptorPart2 descriptor_part_2;
   CHECK_ERROR(file->Read(reinterpret_cast<char*>(&descriptor_part_2),
-                         sizeof(VolumeDescriptorPart2)));
+                         sizeof(VolumeDescriptorPart2))
+              .error());
   RETURN_ERROR_IF_NOT(
       kMicrosoftXboxMedia == string(descriptor_part_2.microsoft_xbox_media,
                                     kMicrosoftXboxMediaSize),
@@ -70,7 +72,7 @@ vector<string> SplitPath(const string& path) {
 }
 
 bool CaseInsensitiveCompare(char left, char right) {
-  return std::tolower(left) < std::tolower(right);
+  return std::toupper(left) < std::toupper(right);
 }
 } // namespace
 
@@ -119,11 +121,13 @@ ErrorOr<bool> Xdfs::DirEntryFromPath(DirEntry* entry, const string& path) {
       // is not a directory.
       return ErrorOr<bool>(false);
     }
-    ErrorOr<bool> error_or_is_found
-        = LookupDirEntryInTable(&current_entry,
-                                xdfs_backend_.ReadDirEntry(SectorToOffset(
-                                        current_entry.start_sector)),
-                                path_component);
+    ErrorOr<DirEntry> error_or_dir_entry =
+        xdfs_backend_.ReadDirEntry(SectorToOffset(current_entry.start_sector));
+    PASS_ERROR(error_or_dir_entry.error());
+    ErrorOr<bool> error_or_is_found =
+        LookupDirEntryInTable(&current_entry,
+                              error_or_dir_entry.get(),
+                              path_component);
     PASS_ERROR(error_or_is_found.error());
     if (!error_or_is_found.get()) {
       return ErrorOr<bool>(false);
@@ -147,14 +151,18 @@ ErrorOr<bool> Xdfs::LookupDirEntryInTable(DirEntry* entry,
       if (current_entry.left_child_dwords == 0) {
         return ErrorOr<bool>(false);
       }
-      current_entry = xdfs_backend_.ReadDirEntry(
+      ErrorOr<DirEntry> error_or_dir_entry = xdfs_backend_.ReadDirEntry(
           dir_offset + current_entry.left_child_dwords * kDWordsBytes);
+      PASS_ERROR(error_or_dir_entry.error());
+      current_entry = error_or_dir_entry.move();
     } else {
       if (current_entry.right_child_dwords == 0) {
         return ErrorOr<bool>(false);
       }
-      current_entry = xdfs_backend_.ReadDirEntry(
+      ErrorOr<DirEntry> error_or_dir_entry = xdfs_backend_.ReadDirEntry(
           dir_offset + current_entry.right_child_dwords * kDWordsBytes);
+      PASS_ERROR(error_or_dir_entry.error());
+      current_entry = error_or_dir_entry.move();
     }
   }
   *entry = current_entry;

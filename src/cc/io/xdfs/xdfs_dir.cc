@@ -13,7 +13,10 @@ vector<XdfsDirEntry> ReadEntriesImpl(XdfsBackend* backend, size_t offset_bytes) 
   vector<XdfsDirEntry> results;
   vector<size_t> offsets_to_scan = { offset_bytes };
   while (!offsets_to_scan.empty()) {
-    const DirEntry entry = backend->ReadDirEntry(offsets_to_scan.back());
+    ErrorOr<DirEntry> error_or_dir_entry
+        = backend->ReadDirEntry(offsets_to_scan.back());
+    CHECK_ERROR(error_or_dir_entry.error());
+    const DirEntry& entry = error_or_dir_entry.get();
     offsets_to_scan.pop_back();
     results.push_back({entry.name, entry.attributes});
     if (entry.left_child_dwords > 0) {

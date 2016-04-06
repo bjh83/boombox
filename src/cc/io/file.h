@@ -14,6 +14,9 @@ class File {
     RD_WR,
   };
 
+  static utils::ErrorOr<File> Create(const std::string& file_name,
+                                     int permissions);
+
   static utils::ErrorOr<File> Open(const std::string& file_name,
                                    AccessMode mode);
 
