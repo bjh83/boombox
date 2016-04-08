@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+using utils::Error;
 using utils::ErrorOr;
 
 namespace io {
@@ -32,11 +33,18 @@ ErrorOr<ssize_t> XdfsFile::Read(char* buffer, size_t max_to_read) {
   return ErrorOr<ssize_t>(std::move(i));
 }
 
-ErrorOr<ssize_t> XdfsFile::Seek(size_t offset) {
+ErrorOr<ssize_t> XdfsFile::Write(const char*, size_t) {
+  FAIL("XDFS does not support writing.");
+}
+
+ErrorOr<size_t> XdfsFile::Seek(size_t offset) {
   current_offset_ = std::max<size_t>(offset, attributes_.size_bytes);
   ssize_t new_offset = current_offset_;
-  return ErrorOr<ssize_t>(std::move(new_offset));
+  return ErrorOr<size_t>(std::move(new_offset));
 }
+
+// Nothing to do.
+Error XdfsFile::Close() { return Error::Ok(); }
 
 } // namespace xdfs
 } // namespace io

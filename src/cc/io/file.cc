@@ -44,7 +44,7 @@ ErrorOr<ssize_t> File::Read(char* buffer, size_t max_to_read) {
   return ErrorOr<ssize_t>(std::move(amount_did_read));
 }
 
-ErrorOr<ssize_t> File::Write(const char* buffer, ssize_t max_to_write) {
+ErrorOr<ssize_t> File::Write(const char* buffer, size_t max_to_write) {
   CHECK(fd_ >= 0);
   ssize_t amount_did_write = write(fd_, buffer, max_to_write);
   RETURN_ERROR_SYSCALL(amount_did_write, "Writing file failed.");

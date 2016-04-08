@@ -1,16 +1,19 @@
 #ifndef IO_XDFS_XDFS_FILE_H_
 #define IO_XDFS_XDFS_FILE_H_
 
+#include "cc/io/file_like.h"
 #include "cc/io/xdfs/xdfs_backend.h"
 #include "cc/io/xdfs/xdfs_common.h"
 #include "cc/utils/error.h"
 
 namespace io {
 namespace xdfs {
-class XdfsFile {
+class XdfsFile : public FileLike {
  public:
-  utils::ErrorOr<ssize_t> Read(char* buffer, size_t max_to_read);
-  utils::ErrorOr<ssize_t> Seek(size_t offset);
+  utils::ErrorOr<ssize_t> Read(char* buffer, size_t max_to_read) override;
+  utils::ErrorOr<ssize_t> Write(const char* buffer, size_t max_to_write) override;
+  utils::ErrorOr<size_t> Seek(size_t offset) override;
+  utils::Error Close() override;
 
  private:
   DirEntry attributes_;
