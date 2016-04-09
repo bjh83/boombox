@@ -1,9 +1,12 @@
 #include "cc/exec/elf/elf.h"
 
 #include <elf.h>
+#include <map>
 #include <vector>
 #include "cc/exec/xbe/xbe_common.h"
 
+using std::map;
+using std::string;
 using std::vector;
 using exec::xbe::kEntryMemAddrXorKey;
 using exec::xbe::kSectionFlagExecutableMask;
@@ -83,6 +86,11 @@ size_t SegNumToOffset(const int segment_number) {
   return sizeof(Elf32_Ehdr) + sizeof(Elf32_Phdr) * segment_number;
 }
 
+size_t SegNumAndSecNumToOffset(const int segment_number,
+                               const int section_number) {
+  return SegNumToOffset(segment_number) + sizeof(Elf32_Shdr) * section_number;
+}
+
 Error CopySegmentFromXbeToElf(File* xbe_file,
                               File* elf_file,
                               const XbeSectionHeader& xbe_section_header,
@@ -110,6 +118,35 @@ Error CopySegmentFromXbeToElf(File* xbe_file,
   return Error::Ok();
 }
 
+uint32_t XbeToElfShdrFlags(const uint32_t xbe_flags) {
+  uint32_t sh_flags = SHF_ALLOC;
+  if (xbe_flags & kSectionFlagWritableMask) {
+    sh_flags |= SHF_WRITE;
+  }
+  if (xbe_flags & kSectionFlagExecutableMask) {
+    sh_flags |= SHF_EXECINSTR;
+  }
+  return sh_flags;
+}
+
+Elf32_Shdr MakeElfSectionHeader(const XbeSectionHeader& xbe_section_header,
+                                const map<uint32_t, uint32_t>& mem_addr_to_index
+                                ) {
+  Elf32_Shdr header = {
+    .sh_name = mem_addr_to_index.at(xbe_section_header.sect_name_mem_addr),
+    .sh_type = SHT_PROGBITS,
+    .sh_flags = XbeToElfShdrFlags(xbe_section_header.section_flags),
+    .sh_addr = xbe_section_header.virt_mem_addr,
+    .sh_offset = xbe_section_header.file_offset,
+    .sh_size = xbe_section_header.file_size,
+    .sh_link = 0,
+    .sh_info = 0,
+    .sh_addralign = 0,
+    .sh_entsize = 0,
+  };
+  return header;
+}
+
 Error ReserveAndZeroElf(File* elf_file, size_t size) {
   const size_t buffer_size = 2048;
   vector<char> buffer(buffer_size, 0);
@@ -123,6 +160,89 @@ Error ReserveAndZeroElf(File* elf_file, size_t size) {
   const size_t remainder = size - amount_written;
   PASS_ERROR(elf_file->Write(buffer.data(), remainder).error());
   return Error::Ok();
+}
+
+Elf32_Shdr MakeElfStrTableSectionHeader(const uint32_t str_table_offset,
+                                        const uint32_t str_table_size,
+                                        const uint32_t name_entry_num) {
+  Elf32_Shdr header = {
+    .sh_name = name_entry_num,
+    .sh_type = SHT_STRTAB,
+    .sh_flags = 0,
+    .sh_addr = 0,
+    .sh_offset = str_table_offset,
+    .sh_size = str_table_size,
+    .sh_link = 0,
+    .sh_info = 0,
+    .sh_addralign = 0,
+    .sh_entsize = 0,
+  };
+  return header;
+}
+
+ErrorOr<map<uint32_t, string>> ReadShdrStrTable(
+    File* xbe_file,
+    const vector<uint32_t>& offsets) {
+  map<uint32_t, string> str_table;
+  for (const uint32_t start_offset : offsets) {
+    PASS_ERROR(xbe_file->Seek(start_offset).error());
+    string current_str;
+    for (uint32_t current_offset = start_offset;; current_offset++) {
+      char current_char;
+      PASS_ERROR(xbe_file->Read(&current_char, 1).error());
+      if (current_char == '\0') {
+        break;
+      }
+      current_str += current_char;
+    }
+    str_table[start_offset] = current_str;
+  }
+  return ErrorOr<map<uint32_t, string>>(std::move(str_table));
+}
+
+ErrorOr<map<uint32_t, uint32_t>> CopyShdrStrTableFromXbeToElf(
+    File* xbe_file,
+    File* elf_file,
+    const vector<uint32_t>& offsets,
+    const int segment_number,
+    const int section_number,
+    const uint32_t offset_to_mem_addr_offset)
+{
+  ErrorOr<map<uint32_t, string>> error_or_shdr_str_table =
+      ReadShdrStrTable(xbe_file, offsets);
+  PASS_ERROR(error_or_shdr_str_table.error());
+
+  map<uint32_t, string> shdr_str_table = error_or_shdr_str_table.move();
+  const uint32_t shdr_str_table_name_index = shdr_str_table.size();
+  shdr_str_table[0xffffffff] = ".shstrtab";
+  const uint32_t shdr_offset = SegNumAndSecNumToOffset(segment_number,
+                                                     section_number);
+  const uint32_t str_table_offset = shdr_offset + sizeof(Elf32_Shdr);
+
+  map<uint32_t, uint32_t> mem_addr_to_index;
+  uint32_t str_table_size = 0;
+  // uint32_t current_index = 0;
+  const char null_char = '\0';
+  PASS_ERROR(elf_file->Seek(str_table_offset).error());
+  for (const auto& str_table_entry : shdr_str_table) {
+    mem_addr_to_index[str_table_entry.first + offset_to_mem_addr_offset] =
+        str_table_size + 1;
+
+    PASS_ERROR(elf_file->Write(&null_char, 1).error());
+    PASS_ERROR(elf_file->Write(str_table_entry.second.data(),
+                               str_table_entry.second.size()).error());
+    PASS_ERROR(elf_file->Write(&null_char, 1).error());
+    str_table_size += str_table_entry.second.size() + 2;
+  }
+
+  const Elf32_Shdr shdr = MakeElfStrTableSectionHeader(str_table_offset,
+                                                 str_table_size,
+                                                 shdr_str_table_name_index);
+  PASS_ERROR(elf_file->Seek(shdr_offset).error());
+  PASS_ERROR(elf_file->Write(reinterpret_cast<const char*>(&shdr),
+                             sizeof(Elf32_Shdr)).error());
+
+  return ErrorOr<map<uint32_t, uint32_t>>(std::move(mem_addr_to_index));
 }
 
 } // namespace
@@ -143,18 +263,30 @@ Error MakeElfFromXbe(File* xbe_file, File* elf_file) {
   PASS_ERROR(xbe_file->Read(reinterpret_cast<char*>(section_headers.data()),
                             sizeof(XbeSectionHeader) * section_headers.size())
              .error());
+  vector<uint32_t> shdr_name_offsets;
+  for (const XbeSectionHeader& section_header : section_headers) {
+    shdr_name_offsets.push_back(
+        section_header.sect_name_mem_addr - image_header.base_mem_addr);
+  }
 
+  ErrorOr<map<uint32_t, uint32_t>> error_or_mem_addr_to_index =
+      CopyShdrStrTableFromXbeToElf(xbe_file,
+                                   elf_file,
+                                   shdr_name_offsets,
+                                   image_header.section_header_num,
+                                   image_header.section_header_num,
+                                   image_header.base_mem_addr);
+  PASS_ERROR(error_or_mem_addr_to_index.error());
+
+  map<uint32_t, uint32_t> mem_addr_to_index = error_or_mem_addr_to_index.move();
+  const uint32_t section_header_num = image_header.section_header_num + 1;
   const Elf32_Ehdr ehdr = MakeElfHeader(image_header.entry_mem_addr,
                                         sizeof(Elf32_Ehdr),
-                                        0, // We don't have sections.
+                                        SegNumToOffset(
+                                            image_header.section_header_num),
                                         image_header.section_header_num,
-                                        0, // We don't have sections.
-                                        SHN_UNDEF);
-
-  // ErrorOr<size_t> error_or_file_size = xbe_file->Seek(INT32_MAX);
-  // PASS_ERROR(error_or_file_size.error());
-  // size_t file_size = error_or_file_size.get();
-  // PASS_ERROR(ReserveAndZeroElf(elf_file, file_size));
+                                        section_header_num,
+                                        section_header_num - 1);
 
   PASS_ERROR(elf_file->Seek(0).error());
   PASS_ERROR(
@@ -167,6 +299,12 @@ Error MakeElfFromXbe(File* xbe_file, File* elf_file) {
                                        elf_file,
                                        section_header,
                                        segment_number++));
+  }
+  PASS_ERROR(elf_file->Seek(SegNumToOffset(segment_number)).error());
+  for (const XbeSectionHeader& section_header : section_headers) {
+    const Elf32_Shdr shdr = MakeElfSectionHeader(section_header, mem_addr_to_index);
+    PASS_ERROR(elf_file->Write(reinterpret_cast<const char*>(&shdr),
+                               sizeof(Elf32_Shdr)).error());
   }
   return Error::Ok();
 }
