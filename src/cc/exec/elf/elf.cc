@@ -129,6 +129,22 @@ uint32_t XbeToElfShdrFlags(const uint32_t xbe_flags) {
   return sh_flags;
 }
 
+Elf32_Shdr MakeElfNullSectionHeader() {
+  Elf32_Shdr header = {
+    .sh_name = 0,
+    .sh_type = SHT_NULL,
+    .sh_flags = 0,
+    .sh_addr = 0,
+    .sh_offset = 0,
+    .sh_size = 0,
+    .sh_link = 0,
+    .sh_info = 0,
+    .sh_addralign = 0,
+    .sh_entsize = 0,
+  };
+  return header;
+}
+
 Elf32_Shdr MakeElfSectionHeader(const XbeSectionHeader& xbe_section_header,
                                 const map<uint32_t, uint32_t>& mem_addr_to_index
                                 ) {
@@ -274,12 +290,12 @@ Error MakeElfFromXbe(File* xbe_file, File* elf_file) {
                                    elf_file,
                                    shdr_name_offsets,
                                    image_header.section_header_num,
-                                   image_header.section_header_num,
+                                   image_header.section_header_num + 1,
                                    image_header.base_mem_addr);
   PASS_ERROR(error_or_mem_addr_to_index.error());
 
   map<uint32_t, uint32_t> mem_addr_to_index = error_or_mem_addr_to_index.move();
-  const uint32_t section_header_num = image_header.section_header_num + 1;
+  const uint32_t section_header_num = image_header.section_header_num + 2;
   const Elf32_Ehdr ehdr = MakeElfHeader(image_header.entry_mem_addr,
                                         sizeof(Elf32_Ehdr),
                                         SegNumToOffset(
@@ -300,7 +316,11 @@ Error MakeElfFromXbe(File* xbe_file, File* elf_file) {
                                        section_header,
                                        segment_number++));
   }
+
   PASS_ERROR(elf_file->Seek(SegNumToOffset(segment_number)).error());
+  const Elf32_Shdr null_shdr = MakeElfNullSectionHeader();
+  PASS_ERROR(elf_file->Write(reinterpret_cast<const char*>(&null_shdr),
+                             sizeof(Elf32_Shdr)).error());
   for (const XbeSectionHeader& section_header : section_headers) {
     const Elf32_Shdr shdr = MakeElfSectionHeader(section_header, mem_addr_to_index);
     PASS_ERROR(elf_file->Write(reinterpret_cast<const char*>(&shdr),
