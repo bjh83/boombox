@@ -41,7 +41,7 @@ Elf32_Ehdr MakeElfHeader(const Elf32_Addr entry_address,
       // Rest is padding.
     },
     .e_type = ET_EXEC,
-    .e_machine = EM_X86_64,
+    .e_machine = EM_386,
     .e_version = EV_CURRENT,
     .e_entry = entry_address,
     .e_phoff = program_header_offset,
