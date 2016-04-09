@@ -229,13 +229,13 @@ ErrorOr<map<uint32_t, uint32_t>> CopyShdrStrTableFromXbeToElf(
   PASS_ERROR(error_or_shdr_str_table.error());
 
   map<uint32_t, string> shdr_str_table = error_or_shdr_str_table.move();
-  const uint32_t shdr_str_table_name_index = shdr_str_table.size();
   shdr_str_table[0xffffffff] = ".shstrtab";
   const uint32_t shdr_offset = SegNumAndSecNumToOffset(segment_number,
                                                      section_number);
   const uint32_t str_table_offset = shdr_offset + sizeof(Elf32_Shdr);
 
   map<uint32_t, uint32_t> mem_addr_to_index;
+  uint32_t shdr_str_table_name_index;
   uint32_t str_table_size = 0;
   // uint32_t current_index = 0;
   const char null_char = '\0';
@@ -243,6 +243,9 @@ ErrorOr<map<uint32_t, uint32_t>> CopyShdrStrTableFromXbeToElf(
   for (const auto& str_table_entry : shdr_str_table) {
     mem_addr_to_index[str_table_entry.first + offset_to_mem_addr_offset] =
         str_table_size + 1;
+    if (str_table_entry.first == 0xffffffff) {
+      shdr_str_table_name_index = str_table_size + 1;
+    }
 
     PASS_ERROR(elf_file->Write(&null_char, 1).error());
     PASS_ERROR(elf_file->Write(str_table_entry.second.data(),
