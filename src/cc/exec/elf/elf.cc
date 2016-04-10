@@ -1,6 +1,7 @@
 #include "cc/exec/elf/elf.h"
 
 #include <elf.h>
+#include <unistd.h>
 #include <map>
 #include <vector>
 #include "cc/exec/xbe/xbe_common.h"
@@ -11,6 +12,7 @@ using std::vector;
 using exec::xbe::kEntryMemAddrXorKey;
 using exec::xbe::kSectionFlagExecutableMask;
 using exec::xbe::kSectionFlagWritableMask;
+using exec::xbe::MakeImageHeaderSectionHeader;
 using exec::xbe::XbeImageHeader;
 using exec::xbe::XbeSectionHeader;
 using io::File;
@@ -69,16 +71,24 @@ uint32_t XbeSectionFlagsToPhdrFlags(const uint32_t xbe_flags) {
 }
 
 Elf32_Phdr MakeElfProgramHeader(const XbeSectionHeader& xbe_section_header) {
+  const Elf32_Off file_offset = xbe_section_header.file_offset;
+  const Elf32_Addr vaddr = xbe_section_header.virt_mem_addr;
+  const uint32_t page_size = getpagesize();
   Elf32_Phdr header = {
     .p_type = PT_LOAD,
-    .p_offset = xbe_section_header.file_offset,
+    .p_offset = file_offset - (file_offset % page_size) + (vaddr % page_size),
     .p_vaddr = xbe_section_header.virt_mem_addr,
     .p_paddr = 0, // Not using phys addresses.
     .p_filesz = xbe_section_header.file_size,
     .p_memsz = xbe_section_header.virt_mem_size,
     .p_flags = XbeSectionFlagsToPhdrFlags(xbe_section_header.section_flags),
-    .p_align = 0, // No alignment required.
+    .p_align = page_size, // No alignment required.
   };
+  // False header.
+  if (xbe_section_header.tail_shared_page_ref_count_mem_addr == 0
+      && xbe_section_header.head_shared_page_ref_count_mem_addr == 0) {
+    header.p_offset = 0x3000000 + (vaddr % page_size);
+  }
   return header;
 }
 
@@ -104,7 +114,7 @@ Error CopySegmentFromXbeToElf(File* xbe_file,
   const size_t buffer_size = 2048;
   char buffer[buffer_size];
   size_t amount_written;
-  PASS_ERROR(xbe_file->Seek(phdr.p_offset).error());
+  PASS_ERROR(xbe_file->Seek(xbe_section_header.file_offset).error());
   PASS_ERROR(elf_file->Seek(phdr.p_offset).error());
   for (amount_written = 0;
        amount_written + buffer_size < phdr.p_filesz;
@@ -270,6 +280,10 @@ Error MakeElfFromXbe(File* xbe_file, File* elf_file) {
   XbeImageHeader image_header;
   PASS_ERROR(xbe_file->Read(reinterpret_cast<char*>(&image_header),
                             sizeof(XbeImageHeader)).error());
+
+  // XXX: This is for the image header and cert segment that is hacked in.
+  // Removed this.
+  image_header.section_header_num++;
   // This is called security.
   image_header.entry_mem_addr
       = image_header.entry_mem_addr ^ kEntryMemAddrXorKey;
@@ -287,6 +301,10 @@ Error MakeElfFromXbe(File* xbe_file, File* elf_file) {
     shdr_name_offsets.push_back(
         section_header.sect_name_mem_addr - image_header.base_mem_addr);
   }
+  // XXX: This is for the image header and cert segment that is hacked in.
+  // Removed this.
+  section_headers.insert(section_headers.begin(),
+                         MakeImageHeaderSectionHeader());
 
   ErrorOr<map<uint32_t, uint32_t>> error_or_mem_addr_to_index =
       CopyShdrStrTableFromXbeToElf(xbe_file,

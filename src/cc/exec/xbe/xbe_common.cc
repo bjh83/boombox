@@ -38,6 +38,22 @@ string SectionFlagsToString(uint32_t section_flags) {
 }
 } // namespace
 
+XbeSectionHeader MakeImageHeaderSectionHeader() {
+  XbeSectionHeader header = {
+    .section_flags = kSectionFlagWritableMask,
+    .virt_mem_addr = 0x10000,
+    .virt_mem_size = 0x0178 + 0x1d0,
+    .file_offset = 0,
+    .file_size = 0x0178 + 0x1d0,
+    .sect_name_mem_addr = 69720, // 69727,
+    .sect_name_ref_count = 0,
+    .head_shared_page_ref_count_mem_addr = 0,
+    .tail_shared_page_ref_count_mem_addr = 0,
+    .section_digest = {0},
+  };
+  return header;
+}
+
 string ToString(const XbeImageHeader& image_header) {
   const string magic_number(
       reinterpret_cast<const char*>(&image_header.magic_number), 4);

@@ -69,6 +69,8 @@ struct XbeSectionHeader {
   uint8_t section_digest[kSectionDigestSize];
 };
 
+XbeSectionHeader MakeImageHeaderSectionHeader();
+
 std::string ToString(const XbeImageHeader& image_header);
 std::string ToString(const XbeSectionHeader& section_header);
 
