@@ -11,6 +11,16 @@ cc_library(
 )
 
 cc_binary(
+  name = "exec_xbe",
+  srcs = ["exec_xbe.cc"],
+  deps = [
+    "//cc/io:file",
+    "//cc/utils:error",
+    ":elf",
+  ],
+)
+
+cc_binary(
   name = "make_elf",
   srcs = ["make_elf.cc"],
   deps = [
